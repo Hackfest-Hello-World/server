@@ -1,4 +1,47 @@
-flask
+# Web Framework
+Flask
 flask-socketio
-nltk
+gunicorn
+eventlet
+
+# Database & Caching
+pymongo
+redis
+
+# Social Media APIs
+tweepy
+python-instagram
+linkedin-api
+
+# NLP & AI
 textblob
+transformers
+torch
+nltk
+emoji
+
+# Message Queue
+celery
+
+# Notifications
+twilio
+sendgrid
+
+# Visualization
+plotly
+dash
+
+# Utilities
+python-dotenv
+requests
+pandas
+numpy
+pydantic
+python-dateutil
+
+# Testing
+pytest
+
+# Security
+PyJWT
+cryptography
