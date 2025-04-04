@@ -82,7 +82,7 @@ def fetch_tweets():
     print("[INFO] Fetching tweets from API...")
 
     url = "https://twitter241.p.rapidapi.com/search-v2"
-    querystring = {"type": "Latest", "query": "IIT", "count": "10"}
+    querystring = {"type": "Latest", "query": "", "count": "10"}
     headers = {
         "X-RapidAPI-Key": '3a8e74bc89mshe81a75341832f10p1e16bajsnd764201e73a0',
         "X-RapidAPI-Host": "twitter241.p.rapidapi.com"
