@@ -1,3 +1,4 @@
-tweepy
-textblob
+flask
+flask-socketio
 nltk
+textblob
