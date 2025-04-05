@@ -31,7 +31,6 @@ print("[INFO] Models loaded successfully.")
 
 last_seen_id = None  # Global tracker
 
-
 def analyze_tweet(text):
     print(f"[DEBUG] Analyzing tweet: {text}")
     sentiment = sentiment_pipeline(text)[0]
@@ -154,4 +153,4 @@ def dashboard():
 if __name__ == "__main__":
     print("[INFO] Starting tweet fetcher and Flask server...")
     fetch_tweets()
-    socketio.run(app, port=5000)
+    socketio.run(app, debug=True)
