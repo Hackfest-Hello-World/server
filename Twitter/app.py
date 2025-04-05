@@ -7,7 +7,7 @@ from flask_socketio import SocketIO
 from pymongo import MongoClient
 from transformers import pipeline
 from dotenv import load_dotenv
-from app_comments import fetch_comments
+from app5 import fetch_comments
 import time
 from bson.json_util import dumps
 
@@ -65,6 +65,8 @@ def store_analysis(tweet_id, analysis,tweet):
         return
     analysis["tweet_id"] = tweet_id
     analysis["uri"]=tweet['uri']
+    analysis['time']=tweet['timestamp']
+    analysis['trend']=tweet['trend']
     db.feedback.insert_one(analysis)
     print("[INFO] Tweet analysis stored in feedback collection.")
 
@@ -116,7 +118,8 @@ def fetch_tweets():
                     legacy_tweet = tweet_result.get("legacy", {})
                     user_legacy = tweet_result.get("core", {}).get("user_results", {}).get("result", {}).get("legacy", {})
                     userid=user_legacy['screen_name']
-                    
+                    timesstamp=user_legacy['created_at']
+                    count=user_legacy['statuses_count']
 
                     tweet_id = legacy_tweet.get("id_str")
                     full_text = legacy_tweet.get("full_text")
@@ -125,7 +128,7 @@ def fetch_tweets():
                     username = user_legacy.get("name")
                     screen_name = user_legacy.get("screen_name")
 
-                    tweets.append({"id": tweet_id, "text": full_text,"uri":url})
+                    tweets.append({"id": tweet_id, "text": full_text,"uri":url,'timestamp':timesstamp,'trend':count})
                     print(f"[INFO] Tweet fetched from @{screen_name}: {full_text}")
                 except:
                     continue
@@ -207,7 +210,7 @@ def dashboard():
 if __name__ == "__main__":
     print("[INFO] Starting tweet fetcher and Flask server...")
     
-    #fetch_tweets()
+    fetch_tweets()
     #test()
     #socketio.start_background_task(start_loop)
     socketio.run(app, port=5000, debug=True)
