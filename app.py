@@ -44,7 +44,7 @@ def home_dashboard():
     # Calculate total counts across platforms
     total_positive = sum(p["counts"].get("LABEL_1", 0) for p in platforms.values())
     total_negative = sum(p["counts"].get("LABEL_0", 0) for p in platforms.values())
-    total_neutral = sum(p["counts"].get("NEUTRAL", 0) for p in platforms.values())
+    total_neutral = sum(p["counts"].get("LABEL_2", 0) for p in platforms.values())
     total_items = total_positive + total_negative + total_neutral
     
     # # Get recent urgent items
@@ -77,17 +77,17 @@ def home_dashboard():
             "twitter": {
                 "positive": calculate_percentage(platforms["twitter"]["counts"].get("LABEL_1", 0), sum(platforms["twitter"]["counts"].values())),
                 "negative": calculate_percentage(platforms["twitter"]["counts"].get("LABEL_0", 0), sum(platforms["twitter"]["counts"].values())),
-                "neutral": calculate_percentage(platforms["twitter"]["counts"].get("NEUTRAL", 0), sum(platforms["twitter"]["counts"].values()))
+                "neutral": calculate_percentage(platforms["twitter"]["counts"].get("LABEL_2", 0), sum(platforms["twitter"]["counts"].values()))
             },
             "instagram": {
                 "positive": calculate_percentage(platforms["instagram"]["counts"].get("LABEL_1", 0), sum(platforms["instagram"]["counts"].values())),
                 "negative": calculate_percentage(platforms["instagram"]["counts"].get("LABEL_0", 0), sum(platforms["instagram"]["counts"].values())),
-                "neutral": calculate_percentage(platforms["instagram"]["counts"].get("NEUTRAL", 0), sum(platforms["instagram"]["counts"].values()))
+                "neutral": calculate_percentage(platforms["instagram"]["counts"].get("LABEL_2", 0), sum(platforms["instagram"]["counts"].values()))
             },
             "youtube": {
                 "positive": calculate_percentage(platforms["youtube"]["counts"].get("LABEL_1", 0), sum(platforms["youtube"]["counts"].values())),
-                "negative": calculate_percentage(platforms["youtube"]["counts"].get("LABEL_2", 0), sum(platforms["youtube"]["counts"].values())),
-                "neutral": calculate_percentage(platforms["youtube"]["counts"].get("NEUTRAL", 0), sum(platforms["youtube"]["counts"].values()))
+                "negative": calculate_percentage(platforms["youtube"]["counts"].get("LABEL_0", 0), sum(platforms["youtube"]["counts"].values())),
+                "neutral": calculate_percentage(platforms["youtube"]["counts"].get("LABEL_2", 0), sum(platforms["youtube"]["counts"].values()))
             }
         },
         "trend_insta": trend_posts_insta,
@@ -120,13 +120,13 @@ def twitter_analysis():
             "tweets": {
                 "positive": {"count": counts.get("LABEL_1", 0), "percentage": calculate_percentage(counts.get("LABEL_1", 0), posts_total)},
                 "negative": {"count": counts.get("LABEL_0", 0), "percentage": calculate_percentage(counts.get("LABEL_0", 0), posts_total)},
-                "neutral": {"count": counts.get("NEUTRAL", 0), "percentage": calculate_percentage(counts.get("NEUTRAL", 0), posts_total)},
+                "neutral": {"count": counts.get("LABEL_2", 0), "percentage": calculate_percentage(counts.get("LABEL_2", 0), posts_total)},
                 "total": posts_total
             },
             "comments": {
                 "positive": {"count": comments_counts.get("LABEL_1", 0), "percentage": calculate_percentage(comments_counts.get("LABEL_1", 0), comments_total)},
                 "negative": {"count": comments_counts.get("LABEL_0", 0), "percentage": calculate_percentage(comments_counts.get("LABEL_0", 0), comments_total)},
-                "neutral": {"count": comments_counts.get("NEUTRAL", 0), "percentage": calculate_percentage(comments_counts.get("NEUTRAL", 0), comments_total)},
+                "neutral": {"count": comments_counts.get("LABEL_2", 0), "percentage": calculate_percentage(comments_counts.get("LABEL_2", 0), comments_total)},
                 "total": comments_total
             }
         },
@@ -162,13 +162,13 @@ def insta_analysis():
             "posts": {
                 "positive": {"count": counts.get("LABEL_1", 0), "percentage": calculate_percentage(counts.get("LABEL_1", 0), posts_total)},
                 "negative": {"count": counts.get("LABEL_0", 0), "percentage": calculate_percentage(counts.get("LABEL_0", 0), posts_total)},
-                "neutral": {"count": counts.get("NEUTRAL", 0), "percentage": calculate_percentage(counts.get("NEUTRAL", 0), posts_total)},
+                "neutral": {"count": counts.get("LABEL_2", 0), "percentage": calculate_percentage(counts.get("LABEL_2", 0), posts_total)},
                 "total": posts_total
             },
             "comments": {
                 "positive": {"count": comments_counts.get("LABEL_1", 0), "percentage": calculate_percentage(comments_counts.get("LABEL_1", 0), comments_total)},
                 "negative": {"count": comments_counts.get("LABEL_0", 0), "percentage": calculate_percentage(comments_counts.get("LABEL_0", 0), comments_total)},
-                "neutral": {"count": comments_counts.get("NEUTRAL", 0), "percentage": calculate_percentage(comments_counts.get("NEUTRAL", 0), comments_total)},
+                "neutral": {"count": comments_counts.get("LABEL_2", 0), "percentage": calculate_percentage(comments_counts.get("LABEL_2", 0), comments_total)},
                 "total": comments_total
             }
         },
