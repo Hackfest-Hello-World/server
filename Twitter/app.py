@@ -201,8 +201,8 @@ def dashboard():
     counts = metrics.get("counts", {})
     print(f"[INFO] Current sentiment counts: {counts}")
     return jsonify({
-        "positive": counts.get("POSITIVE", 0),
-        "negative": counts.get("NEGATIVE", 0),
+        "positive": counts.get("LABEL_1", 0),
+        "negative": counts.get("LABEL_2", 0),
         "neutral": counts.get("NEUTRAL", 0)
     })
 

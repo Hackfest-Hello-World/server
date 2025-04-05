@@ -42,14 +42,16 @@ def home_dashboard():
     total_neutral = sum(p["counts"].get("NEUTRAL", 0) for p in platforms.values())
     total_items = total_positive + total_negative + total_neutral
     
-    # Get recent urgent items
-    urgent_items = list(db.feedback.find({"urgent": True}, {"_id": 0}).sort("timestamp", -1).limit(3))
-    urgent_items.extend(list(db.feedback_insta.find({"urgent": True}, {"_id": 0}).sort("timestamp", -1).limit(3)))
-    urgent_items.extend(list(db.feedback_youtube.find({"urgent": True}, {"_id": 0}).sort("timestamp", -1).limit(3)))
+    # # Get recent urgent items
+    # urgent_items = list(db.feedback.find({"urgent": True}, {"_id": 0}).sort("timestamp", -1).limit(3))
+    # urgent_items.extend(list(db.feedback_insta.find({"urgent": True}, {"_id": 0}).sort("timestamp", -1).limit(3)))
+    # urgent_items.extend(list(db.feedback_youtube.find({"urgent": True}, {"_id": 0}).sort("timestamp", -1).limit(3)))
     
     # Sort by timestamp
-    urgent_items.sort(key=lambda x: x["timestamp"], reverse=True)
-    
+    # urgent_items.sort(key=lambda x: x["timestamp"], reverse=True)
+
+    trend_posts_insta = list(db.feedback_insta.find({}, {"_id": 0, "text": 1, "sentiment": 1, "timestamp": 1}).sort("views", -1).limit(2))
+    trend_posts_twitter = list(db.feedback.find({}, {"_id": 0, "text": 1, "sentiment": 1, "timestamp": 1}).sort("trend", -1).limit(2))
     return jsonify({
         "overall": {
             "positive": {
@@ -83,7 +85,8 @@ def home_dashboard():
                 "neutral": calculate_percentage(platforms["youtube"]["counts"].get("NEUTRAL", 0), sum(platforms["youtube"]["counts"].values()))
             }
         },
-        "urgent_items": urgent_items[:5]  # Most recent 5 urgent items
+        "trend_insta": trend_posts_insta,
+        "trend_twitter": trend_posts_twitter,
     })
 
 
@@ -104,7 +107,7 @@ def twitter_analysis():
     
     # Get recent tweets and comments
     recent_tweets = list(db.feedback.find({}, {"_id": 0, "text": 1, "sentiment": 1, "timestamp": 1, "uri": 1}).sort("timestamp", -1).limit(5))
-    recent_comments = list(db.feedback_comments.find({}, {"_id": 0, "text": 1, "sentiment": 1, "timestamp": 1}).sort("timestamp", -1).limit(5))
+    # recent_comments = list(db.feedback_comments.find({}, {"_id": 0, "text": 1, "sentiment": 1, "timestamp": 1}).sort("timestamp", -1).limit(5))
     
     return jsonify({
         "platform": "Twitter",
@@ -123,7 +126,7 @@ def twitter_analysis():
             }
         },
         "recent_tweets": recent_tweets,
-        "recent_comments": recent_comments
+        # "recent_comments": recent_comments
     })
 
 @app.route("/insta-analysis")
@@ -143,7 +146,7 @@ def insta_analysis():
     
     # Get recent posts and comments
     recent_posts = list(db.feedback_insta.find({}, {"_id": 0, "text": 1, "sentiment": 1, "timestamp": 1}).sort("timestamp", -1).limit(5))
-    recent_comments = list(db.feedback_comments_insta.find({}, {"_id": 0, "text": 1, "sentiment": 1, "timestamp": 1}).sort("timestamp", -1).limit(5))
+    # recent_comments = list(db.feedback_comments_insta.find({}, {"_id": 0, "text": 1, "sentiment": 1, "timestamp": 1}).sort("timestamp", -1).limit(5))
     
     return jsonify({
         "platform": "Instagram",
@@ -162,7 +165,7 @@ def insta_analysis():
             }
         },
         "recent_posts": recent_posts,
-        "recent_comments": recent_comments
+        # "recent_comments": recent_comments
     })
 
 if __name__ == '__main__':
