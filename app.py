@@ -7,11 +7,20 @@ from flask_socketio import SocketIO
 from pymongo import MongoClient
 from transformers import pipeline
 from dotenv import load_dotenv
+from app_comments import fetch_comments
+import time
+from bson.json_util import dumps
+
+import logging
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
 app = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app,async_mode='threading', cors_allowed_origins="*")
 
 CONFIG = {
     "alert_thresholds": {
@@ -31,6 +40,7 @@ print("[INFO] Models loaded successfully.")
 
 last_seen_id = None  # Global tracker
 
+
 def analyze_tweet(text):
     print(f"[DEBUG] Analyzing tweet: {text}")
     sentiment = sentiment_pipeline(text)[0]
@@ -45,6 +55,7 @@ def analyze_tweet(text):
         "urgent": urgent,
         "timestamp": datetime.utcnow()
     }
+
 
 
 def store_analysis(tweet_id, analysis,tweet):
@@ -81,9 +92,9 @@ def fetch_tweets():
     print("[INFO] Fetching tweets from API...")
 
     url = "https://twitter241.p.rapidapi.com/search-v2"
-    querystring = {"type": "Latest", "query": "", "count": "10"}
+    querystring = {"type": "Latest", "query": "IPL", "count": "10"}
     headers = {
-        "X-RapidAPI-Key": '3a8e74bc89mshe81a75341832f10p1e16bajsnd764201e73a0',
+        "X-RapidAPI-Key": 'cc17d03003msh9b10bdb1326faddp109cb2jsnfdab0ff25424',
         "X-RapidAPI-Host": "twitter241.p.rapidapi.com"
     }
 
@@ -99,22 +110,25 @@ def fetch_tweets():
         for entry in entries:
             content = entry.get("content", {})
             if content.get("__typename") == "TimelineTimelineItem":
-                item_content = content.get("itemContent", {})
-                tweet_result = item_content.get("tweet_results", {}).get("result", {})
-                legacy_tweet = tweet_result.get("legacy", {})
-                user_legacy = tweet_result.get("core", {}).get("user_results", {}).get("result", {}).get("legacy", {})
-                userid=user_legacy['screen_name']
-                
+                try:
+                    item_content = content.get("itemContent", {})
+                    tweet_result = item_content.get("tweet_results", {}).get("result", {})
+                    legacy_tweet = tweet_result.get("legacy", {})
+                    user_legacy = tweet_result.get("core", {}).get("user_results", {}).get("result", {}).get("legacy", {})
+                    userid=user_legacy['screen_name']
+                    
 
-                tweet_id = legacy_tweet.get("id_str")
-                full_text = legacy_tweet.get("full_text")
-                url='https://x.com/'+userid+'/status/'+tweet_id
+                    tweet_id = legacy_tweet.get("id_str")
+                    full_text = legacy_tweet.get("full_text")
+                    url='https://x.com/'+userid+'/status/'+tweet_id
 
-                username = user_legacy.get("name")
-                screen_name = user_legacy.get("screen_name")
+                    username = user_legacy.get("name")
+                    screen_name = user_legacy.get("screen_name")
 
-                tweets.append({"id": tweet_id, "text": full_text,"uri":url})
-                print(f"[INFO] Tweet fetched from @{screen_name}: {full_text}")
+                    tweets.append({"id": tweet_id, "text": full_text,"uri":url})
+                    print(f"[INFO] Tweet fetched from @{screen_name}: {full_text}")
+                except:
+                    continue
 
         print(f"[INFO] Total processed tweets: {len(tweets)}")
         tweets.reverse()
@@ -137,6 +151,46 @@ def fetch_tweets():
     threading.Timer(30, fetch_tweets).start()
 
 
+def store_analysis_comments(tweet_id, analysis):
+    print(f"[INFO] Storing analysis for tweet_id: {tweet_id}")
+    if db.feedback_comments.find_one({"post_id": tweet_id}):
+        print("[WARNING] Duplicate post found. Skipping insert.")
+        return
+    analysis["post_id"] = tweet_id
+    db.feedback_comments.insert_one(analysis)
+    print("[INFO] Tweet analysis stored in feedback collection.")
+
+    db.metrics_comments.update_one(
+        {"type": "sentiment"},
+        {"$inc": {f"counts.{analysis['sentiment']}": 1}},
+        upsert=True
+    )
+    print("[INFO] Sentiment metrics updated.")
+
+
+
+def comments(username):
+    comments=fetch_comments(username)
+    for item in comments:
+        id=item['id']
+        for comment in item['comments']:
+            analysis = analyze_tweet(comment)
+            store_analysis_comments(id, analysis)
+
+def test():
+    
+    m=db.metrics_comments.find()
+    m1=dumps(m)
+    #print(m1)
+    socketio.emit("update",{"t":99})
+    #logger.info(f"[SOCKET] Metrics emitted: {99}")
+    time.sleep(2)
+    threading.Timer(3, test).start()
+
+def start_loop():
+    socketio.sleep(3)
+    test()
+
 @app.route("/dashboard")
 def dashboard():
     print("[INFO] Dashboard API hit.")
@@ -152,5 +206,8 @@ def dashboard():
 
 if __name__ == "__main__":
     print("[INFO] Starting tweet fetcher and Flask server...")
-    fetch_tweets()
-    socketio.run(app, debug=True)
+    
+    #fetch_tweets()
+    #test()
+    #socketio.start_background_task(start_loop)
+    socketio.run(app, port=5000, debug=True)
