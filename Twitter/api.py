@@ -309,4 +309,4 @@ if __name__ == "__main__":
     #fetch_tweets()
     #test()
     #socketio.start_background_task(start_loop)
-    socketio.run(app, port=5000, debug=True)
+    socketio.run(app, port=5003, debug=True)
