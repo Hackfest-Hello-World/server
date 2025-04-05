@@ -145,7 +145,10 @@ def insta_analysis():
     comments_total = sum(comments_counts.values())
     
     # Get recent posts and comments
-    recent_posts = list(db.feedback_insta.find({}, {"_id": 0, "text": 1, "sentiment": 1, "timestamp": 1}).sort("timestamp", -1).limit(5))
+    # recent_posts = list(db.feedback_insta.find({}, {"_id": 0, "text": 1, "sentiment": 1, "timestamp": 1}).sort("timestamp", -1).limit(5))
+    recent_posts = list(db.feedback_insta.find({}, {"_id": 0}).sort("timestamp", -1).limit(5))
+
+
     # recent_comments = list(db.feedback_comments_insta.find({}, {"_id": 0, "text": 1, "sentiment": 1, "timestamp": 1}).sort("timestamp", -1).limit(5))
     
     return jsonify({
