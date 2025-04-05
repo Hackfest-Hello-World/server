@@ -1,4 +1,4 @@
-from  groq_service.groq_promt import groq_llm_promt
+from  groqpr import groq_llm_promt
 import json
 from pymongo import MongoClient
 from dotenv import load_dotenv
@@ -65,3 +65,23 @@ def alert(message,id,url,source):
             "confidence": 0.0
         }
 
+
+def analysis11111(text):
+    prompt='''
+        ou are a sentiment analysis expert. Analyze the following text and classify it as exactly one of these categories: "POSITIVE", "NEGATIVE", or "NEUTRAL".
+
+Guidelines:
+- LABEL_1: Text expressing approval, happiness, satisfaction, optimism, or praise ( for POSITIVE )
+- LABEL_0: Text expressing disapproval, sadness, disappointment, pessimism, anger, or criticism ( for NEGATIVE )
+- LABEL_2: Text that is factual, objective, or doesn't express a clear positive or negative sentiment ( for NEUTRAL )
+
+Provide only the category label ("LABEL_1", "LABEL_0", or "LABEL_2") as your response, with no additional explanation or text.\n'''+ text
+
+
+            
+
+
+
+    groq_response = groq_llm_promt(prompt)
+    
+    return groq_response

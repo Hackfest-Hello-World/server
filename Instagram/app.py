@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 import time
 from bson.json_util import dumps
 from alert import alert
+from alert import analysis11111
 
 import logging
 from app2 import *
@@ -45,12 +46,13 @@ last_seen_id = None  # Global tracker
 def analyze_tweet(text):
     print(f"[DEBUG] Analyzing tweet: {text}")
     sentiment = sentiment_pipeline(text)[0]
+    x=analysis11111(text)
     emotions = emotion_pipeline(text)
     urgent = any(kw in text.lower() for kw in CONFIG['alert_thresholds']['urgent_keywords'])
     print(f"[DEBUG] Sentiment: {sentiment}, Urgent: {urgent}, Emotions: {emotions}")
     return {
         "text": text,
-        "sentiment": sentiment["label"],
+        "sentiment": x,
         "confidence": sentiment["score"],
         "emotions": emotions,
         "urgent": urgent,
@@ -88,7 +90,8 @@ def trigger_alert(analysis):
     print("[ALERT] Alert emitted via SocketIO.")
 
 def fetch_captions_comments():
-    posts= fetch_user_posts("hardikpandya93")
+    posts= fetch_user_posts("iit.ism")
+    print(posts)
     for items in posts:
         post_id = items["post_id"]
         code=items['code']
@@ -105,6 +108,7 @@ def fetch_captions_comments():
         comm=[]
         for comment in comments:
             analysis1 = analyze_tweet(comment["text"])
+
             store_analysis_comments(post_id, analysis1)
             if analysis1['sentiment']=='LABEL_0':
                 neg+=1
@@ -112,12 +116,16 @@ def fetch_captions_comments():
             else:
                 poss+=1
             comm.append(analysis1)
-        score=poss/(poss+neg)
+        score=0
+        if(poss+neg!=0):
+            score=poss/(poss+neg)
         uri='https://www.instagram.com/p/'+code+'/?hl=en'
         analysis={'comments':comm,'score':score,'caption':items['caption'],'url':uri,'views':view,'timestamp':timestamp}
         sentiment1='LABEL_1'
         if score<0.5:
             sentiment1='LABEL_0'
+        elif (poss+neg)==0:
+            sentiment1='LABEL_2'
         store_analysis(post_id, analysis,items,sentiment1)
             #store_analysis_comments(post_id, analysis1)
 
@@ -178,4 +186,4 @@ if __name__ == "__main__":
     #test()
     #socketio.start_background_task(start_loop)
     fetch_captions_comments()
-    socketio.run(app, port=5000, debug=True)
+    #socketio.run(app, port=5000, debug=True)

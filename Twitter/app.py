@@ -11,6 +11,7 @@ from app_comments import fetch_comments
 import time
 from bson.json_util import dumps
 from alert import alert
+from alert import analysis11111
 
 import logging
 
@@ -68,6 +69,7 @@ def store_analysis(tweet_id, analysis,tweet):
     analysis["uri"]=tweet['uri']
     analysis['time']=tweet['timestamp']
     analysis['trend']=tweet['trend']
+    analysis['sentiment']=analysis11111(tweet['text'])
     db.feedback.insert_one(analysis)
     print("[INFO] Tweet analysis stored in feedback collection.")
 
@@ -95,7 +97,7 @@ def fetch_tweets():
     print("[INFO] Fetching tweets from API...")
 
     url = "https://twitter241.p.rapidapi.com/search-v2"
-    querystring = {"type": "Latest", "query": "IPL", "count": "10"}
+    querystring = {"type": "Latest", "query": "waqf", "count": "10"}
     headers = {
         "X-RapidAPI-Key": 'cc17d03003msh9b10bdb1326faddp109cb2jsnfdab0ff25424',
         "X-RapidAPI-Host": "twitter241.p.rapidapi.com"
@@ -154,7 +156,7 @@ def fetch_tweets():
         print(f"[ERROR] Tweet fetch or processing failed: {e}")
 
     print("[INFO] Scheduling next fetch in 30 seconds...\n")
-    threading.Timer(30, fetch_tweets).start()
+    threading.Timer(1, comments('DelhiWaqfBoard')).start()
 
 
 def store_analysis_comments(tweet_id, analysis,score):
@@ -165,6 +167,7 @@ def store_analysis_comments(tweet_id, analysis,score):
     analysis11={}
     analysis11["post_id"] = tweet_id
     analysis11['comments']=analysis
+    analysis11['sentiment']=analysis11111()
     analysis11['score']=score
     db.feedback_comments.insert_one(analysis11)
     print("[INFO] Tweet analysis stored in feedback collection.")
@@ -181,7 +184,7 @@ def store_analysis_comments(tweet_id, analysis,score):
 
 
 def comments(username):
-    comments=fetch_comments(username)
+    comments=fetch_comments('MrBeast')
     for item in comments:
         id=item['id']
         poss=0
@@ -189,16 +192,18 @@ def comments(username):
         comment_analysis=[]
         for comment in item['comments']:
             analysis = analyze_tweet(comment)
-
+            x=analysis11111(comment)
+            analysis['sentiment']=x
             comment_analysis.append(analysis)
             if analysis['sentiment']=='LABEL_0':
                 neg+=1
                 alert(comment,id,"",'X')
-            else:
+            elif analysis['sentiment']=='LABEL_1':
                 poss+=1
         score=poss/(poss+neg)
         
         store_analysis_comments(id, comment_analysis,score)
+        threading.Timer(1, fetch_tweets).start()
 
 def test():
     
@@ -233,4 +238,4 @@ if __name__ == "__main__":
     fetch_tweets()
     #test()
     #socketio.start_background_task(start_loop)
-    socketio.run(app, port=5000, debug=True)
+    #socketio.run(app, port=5000, debug=True)
