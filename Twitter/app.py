@@ -194,23 +194,22 @@ def start_loop():
     socketio.sleep(3)
     test()
 
-@app.route("/dashboard")
-def dashboard():
-    print("[INFO] Dashboard API hit.")
-    metrics = db.metrics.find_one({"type": "sentiment"}) or {}
-    counts = metrics.get("counts", {})
-    print(f"[INFO] Current sentiment counts: {counts}")
-    return jsonify({
-        "positive": counts.get("LABEL_1", 0),
-        "negative": counts.get("LABEL_2", 0),
-        "neutral": counts.get("NEUTRAL", 0)
-    })
+# @app.route("/dashboard")
+# def dashboard():
+#     print("[INFO] Dashboard API hit.")
+#     metrics = db.metrics.find_one({"type": "sentiment"}) or {}
+#     counts = metrics.get("counts", {})
+#     print(f"[INFO] Current sentiment counts: {counts}")
+#     return jsonify({
+#         "positive": counts.get("LABEL_1", 0),
+#         "negative": counts.get("LABEL_2", 0),
+#         "neutral": counts.get("NEUTRAL", 0)
+#     })
 
 
 if __name__ == "__main__":
-    print("[INFO] Starting tweet fetcher and Flask server...")
-    
+    # print("[INFO] Starting tweet fetcher and Flask server...")
     fetch_tweets()
     #test()
     #socketio.start_background_task(start_loop)
-    socketio.run(app, port=5000, debug=True)
+    # socketio.run(app, port=5000, debug=True)

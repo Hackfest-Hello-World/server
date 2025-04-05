@@ -7,6 +7,8 @@ from  groq_service.groq_promt import groq_llm_promt
 import msgpack
 import json
 import sys
+import time
+import threading
    # Load environment variables
 load_dotenv()
 mongo_uri = os.getenv("MONGO_URI")
@@ -139,8 +141,8 @@ def fetch_all_forms_data():
                 # Optionally store in MongoDB
                 store_form_data_in_mongodb(transformed_data, db)
                 
+                
             except Exception as e:
-                print(e)
                 print(f"Error fetching data for form {form['name']} (ID: {form_id}): {str(e)}")
         
         return all_forms_data
@@ -160,32 +162,29 @@ def transform_form_data_for_mongodb(api_response, stored_responses):
     form_data = api_response['form']
     stored_responses_ids = [response["responseId"] for response in stored_responses]
     # Create form document
+    # print(form_data)
     form_document = {
         "formId": form_data['formId'],
-        "title": form_data['info']['title'],
+        "title": form_data['info'].get('title') or form_data["info"].get('documentTitle') or None,
         "items": [],
         "link": f"https://docs.google.com/forms/d/{form_data['formId']}",
     }
-    
     # Map questionId to item details for easy lookup
     question_map = {}
     for item in form_data['items']:
         if 'questionItem' in item:
             question_id = item['questionItem']['question']['questionId']
             item_type = "file" if 'fileUploadQuestion' in item['questionItem']['question'] else "text"
-            
             form_document['items'].append({
                 "itemId": item['itemId'],
                 "questionId": question_id,
                 "title": item['title'],
                 "type": item_type
             })
-            
             question_map[question_id] = {
                 "title": item['title'],
                 "type": item_type
             }
-    
     # Process responses
     responses = []
     for response in api_response['responses'].get('responses', []):
@@ -194,7 +193,6 @@ def transform_form_data_for_mongodb(api_response, stored_responses):
         if response["responseId"]  in stored_responses_ids:
             print("response already processed")
             continue
-        
         response_doc = {
             "formId": form_document['formId'],
             "responseId": response['responseId'],
@@ -203,7 +201,6 @@ def transform_form_data_for_mongodb(api_response, stored_responses):
             "answers": {},
             "sentimentAnalysis": response.get("sentimentAnalysis", None)
         }
-        
         # Process answers
         if 'answers' in response:
             for question_id, answer_data in response['answers'].items():
@@ -224,14 +221,15 @@ def transform_form_data_for_mongodb(api_response, stored_responses):
                         }
         if response_doc["sentimentAnalysis"] is None:
             print("sentiment analysis not found in response")
-            prompt = f'''You have to act as an expert in providing overall sentiment analysis for the following google form response submitted by a user. The response object provided below contains the answers object which contains key as the google form fields and value as the users answer based on it you have to do the overall sentiment analysis \n 
+            prompt = f'''You have to act as an expert in providing overall sentiment analysis for the following google form response submitted by a user and a very small and response summary not more than 1 line. The response object provided below contains the answers object which contains key as the google form fields and value as the users answer based on it you have to do the overall sentiment analysis \n 
             Response given by the user is:
             {response_doc}
             
-            You have to give the response output as a json format (Strictly stick to the output format as a json), dont include anything else, just give the output format in json as i will parse the response directly using json.loads(your_response) \n
+            You have to give the response output as a json format (Strictly stick to the output format as a json), dont include anything else, just give the output format in json as i will parse the response directly using json.loads(your_response). The response_summary should not be more than 1 line and should be such that reading it we can get some important analysis \n
             {{
             "sentiment": "positive/negative/neutral",
             "confidence" : 
+            "response_summary": 
             }}
             '''
         #   print(prompt)
@@ -242,7 +240,8 @@ def transform_form_data_for_mongodb(api_response, stored_responses):
                 print("Error decoding JSON response from Groq")
                 groq_response = {
                     "sentiment": "unknown",
-                    "confidence": 0.0
+                    "confidence": 0.0,
+                    "response_summary": "Unable to analyze sentiment"
                 }
             response_doc["sentimentAnalysis"] = groq_response
         #   break
@@ -263,32 +262,49 @@ def store_form_data_in_mongodb(form_data, db):
         db: MongoDB database connection
     """
     # Store form document
-    forms_collection = db.forms
-    forms_collection.update_one(
-        {"formId": form_data["form"]["formId"]},
-        {"$set": form_data["form"]},
-        upsert=True
-    )
-    
-    # Store responses
-    responses_collection = db.form_responses
-    for response in form_data["responses"]:
-        responses_collection.update_one(
-            {"responseId": response["responseId"]},
-            {"$set": response},
+    try:
+        forms_collection = db.forms
+        forms_collection.update_one(
+            {"formId": form_data["form"]["formId"]},
+            {"$set": form_data["form"]},
             upsert=True
         )
+        
+        # Store responses
+        responses_collection = db.form_responses
+        for response in form_data["responses"]:
+            responses_collection.update_one(
+                {"responseId": response["responseId"]},
+                {"$set": response},
+                upsert=True
+            )
+        print("Form data stored successfully in MongoDB")
+    except Exception as e:
+        print(f"Error storing form data in MongoDB: {str(e)}")
 
+def run_fetch_data():
+    while True:
+        print("Fetching Google Forms data...")
+        forms_data = fetch_all_forms_data()
+        if forms_data:
+            print("Successfully fetched forms data")
+            # Process the forms_data here
+        else:
+            print("Failed to fetch forms data")
+        
+        time.sleep(45)
+        
 if __name__ == "__main__":
     print("Starting Google Forms data fetcher...")
-    forms_data = fetch_all_forms_data()
     
-    if forms_data:
-        print(f"Successfully fetched data for {len(forms_data)} forms")
-        
-        # Optionally save to a JSON file
-        with open('forms_data.json', 'w') as f:
-            json.dump(forms_data, f, indent=2)
-        print("Data saved to forms_data.json")
-    else:
-        print("Failed to fetch forms data")
+    # Create and start the thread
+    fetch_thread = threading.Thread(target=run_fetch_data)
+    fetch_thread.daemon = True
+    fetch_thread.start()
+    
+    # Keep the main thread running
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("Stopping the data fetcher...")

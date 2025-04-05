@@ -4,6 +4,7 @@ from pymongo import MongoClient
 from dotenv import load_dotenv
 import os
 import logging
+from flask_cors import CORS
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, 
@@ -17,7 +18,8 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "sentinel-dashboard-secret")
 socketio = SocketIO(app, async_mode='threading', cors_allowed_origins="*")
-
+# Enable CORS for all origins
+CORS(app, resources={r"/*": {"origins": "*"}})
 # Connect to MongoDB
 mongo_client = MongoClient(os.getenv("MONGO_URI"))
 db = mongo_client.event_monitoring
@@ -168,6 +170,64 @@ def insta_analysis():
         # "recent_comments": recent_comments
     })
 
+@app.route("/forms/getAll")
+def get_live_forms():
+    # Fetch all forms
+    live_forms = list(db.forms.find({}, {"_id": 0}).sort("timestamp", -1))
+    
+    # Fetch all form responses
+    form_responses = list(db.form_responses.find({}, {"_id": 0}))
+    
+    # Create a dictionary to map formId to responses
+    responses_dict = {}
+    for response in form_responses:
+        form_id = response.get("formId")
+        if form_id:
+            if form_id not in responses_dict:
+                responses_dict[form_id] = []
+            responses_dict[form_id].append(response)
+    
+    # Add responses to the corresponding forms
+    for form in live_forms:
+        form_id = form.get("formId")
+        form["responses"] = responses_dict.get(form_id, [])
+        positive, negative, neutral = 0, 0, 0
+        last_submitted_time = None
+
+        for response in form["responses"]:
+            sentiment = response.get("sentimentAnalysis", {}).get("sentiment", "")
+            if sentiment == "positive":
+                positive += 1
+            elif sentiment == "negative":
+                negative += 1
+            elif sentiment == "neutral":
+                neutral += 1
+            
+            for key, value in response["answers"].items():
+                if 'email' in key.lower() or "gmail" in key.lower():
+                    response["email"] = value
+                    break
+            
+            # Track the most recent submission time
+            response_time = response.get("lastSubmittedTime")
+            if response_time and (last_submitted_time is None or response_time > last_submitted_time):
+                last_submitted_time = response_time
+        
+        # Set the lastUpdated field
+        form["lastUpdated"] = last_submitted_time
+    
+        # Determine overall sentiment
+        if positive > negative:
+            form["sentiment"] = "Positive"
+        elif negative > positive:
+            form["sentiment"] = "Negative"
+        else:
+            form["sentiment"] = "Neutral"
+    # Sort forms by lastUpdated in decreasing order (newest first)
+    live_forms = sorted(live_forms, key=lambda form: form.get("lastUpdated") or "", reverse=True)
+    return jsonify(live_forms)
+    
+
 if __name__ == '__main__':
     print("[INFO] Starting main dashboard server...")
-    socketio.run(app, port=5000, debug=True)
+    socketio.run(app, port=5010, debug=True)
