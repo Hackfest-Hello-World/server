@@ -2,7 +2,7 @@ import requests
 
 HEADERS = {
     "x-rapidapi-host": "instagram230.p.rapidapi.com",
-    "x-rapidapi-key": "40aa78f613msh0d3be2aa1ef2521p1a78c7jsne3c3ded97d8a"
+    "x-rapidapi-key": "3a8e74bc89mshe81a75341832f10p1e16bajsnd764201e73a0"
 }
 
 def fetch_user_details(username):
@@ -55,6 +55,9 @@ def fetch_user_posts(username):
 
         post_info = {
             "post_id": post_id,
+            "code":item.get('code'),
+            'view':item.get('play_count'),
+            'timestamp':item.get('device_timestamp'),
             "caption": caption_text,
             "tagged_users": tagged_users,
             "timestamp": item.get("taken_at")

@@ -58,7 +58,7 @@ def analyze_tweet(text):
 
 
 
-def store_analysis(post_id, analysis,post):
+def store_analysis(post_id, analysis,post,sentiment):
     print(f"[INFO] Storing analysis for tweet_id: {post_id}")
     if db.feedback_insta.find_one({"post_id": post_id}):
         print("[WARNING] Duplicate tweet found. Skipping insert.")
@@ -70,7 +70,7 @@ def store_analysis(post_id, analysis,post):
 
     db.metrics_insta.update_one(
         {"type": "sentiment"},
-        {"$inc": {f"counts.{analysis['sentiment']}": 1}},
+        {"$inc": {f"counts.{sentiment}": 1}},
         upsert=True
     )
     print("[INFO] Sentiment metrics updated.")
@@ -87,18 +87,37 @@ def trigger_alert(analysis):
     print("[ALERT] Alert emitted via SocketIO.")
 
 def fetch_captions_comments():
-    posts= fetch_user_posts("virat.kohli")
+    posts= fetch_user_posts("hardikpandya93")
     for items in posts:
         post_id = items["post_id"]
+        code=items['code']
+        view=items['view']
+        timestamp=items['timestamp']
         #last_seen_id = max(last_seen_id or "0", tweet_id)
         comments=fetch_post_comments(post_id)['comments']
-        analysis = analyze_tweet(items["caption"])
-        store_analysis(post_id, analysis,items)
-        if analysis["urgent"]:
-            trigger_alert(analysis)
+        #analysis = analyze_tweet(items["caption"])
+        # store_analysis(post_id, analysis,items)
+        # if analysis["urgent"]:
+        #     trigger_alert(analysis)
+        neg=0
+        poss=0
+        comm=[]
         for comment in comments:
             analysis1 = analyze_tweet(comment["text"])
             store_analysis_comments(post_id, analysis1)
+            if analysis1['sentiment']=='LABEL_0':
+                neg+=1
+            else:
+                poss+=1
+            comm.append(analysis1)
+        score=poss/(poss+neg)
+        uri='https://www.instagram.com/p/'+code+'/?hl=en'
+        analysis={'comments':comm,'score':score,'caption':items['caption'],'url':uri,'views':view,'timestamp':timestamp}
+        sentiment1='LABEL_1'
+        if score<0.5:
+            sentiment1='LABEL_0'
+        store_analysis(post_id, analysis,items,sentiment1)
+            #store_analysis_comments(post_id, analysis1)
 
 
 
@@ -144,8 +163,8 @@ def dashboard():
     counts = metrics.get("counts", {})
     print(f"[INFO] Current sentiment counts: {counts}")
     return jsonify({
-        "positive": counts.get("POSITIVE", 0),
-        "negative": counts.get("NEGATIVE", 0),
+        "positive": counts.get("LABEL_1", 0),
+        "negative": counts.get("LABEL_2", 0),
         "neutral": counts.get("NEUTRAL", 0)
     })
 
