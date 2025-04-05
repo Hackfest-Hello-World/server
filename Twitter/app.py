@@ -7,9 +7,10 @@ from flask_socketio import SocketIO
 from pymongo import MongoClient
 from transformers import pipeline
 from dotenv import load_dotenv
-from app5 import fetch_comments
+from app_comments import fetch_comments
 import time
 from bson.json_util import dumps
+from alert import alert
 
 import logging
 
@@ -143,6 +144,8 @@ def fetch_tweets():
             last_seen_id = max(last_seen_id or "0", tweet_id)
 
             analysis = analyze_tweet(tweet["text"])
+            if analysis['sentiment']=='LABEL_0':
+                alert(tweet["text"],tweet['id'],tweet['uri'],'X')
             store_analysis(tweet_id, analysis,tweet)
             if analysis["urgent"]:
                 trigger_alert(analysis)
@@ -154,18 +157,23 @@ def fetch_tweets():
     threading.Timer(30, fetch_tweets).start()
 
 
-def store_analysis_comments(tweet_id, analysis):
+def store_analysis_comments(tweet_id, analysis,score):
     print(f"[INFO] Storing analysis for tweet_id: {tweet_id}")
     if db.feedback_comments.find_one({"post_id": tweet_id}):
         print("[WARNING] Duplicate post found. Skipping insert.")
         return
-    analysis["post_id"] = tweet_id
-    db.feedback_comments.insert_one(analysis)
+    analysis11={}
+    analysis11["post_id"] = tweet_id
+    analysis11['comments']=analysis
+    analysis11['score']=score
+    db.feedback_comments.insert_one(analysis11)
     print("[INFO] Tweet analysis stored in feedback collection.")
-
+    senti='LABEL_0'
+    if score>0.5:
+        senti='LABEL_1'
     db.metrics_comments.update_one(
         {"type": "sentiment"},
-        {"$inc": {f"counts.{analysis['sentiment']}": 1}},
+        {"$inc": {f"counts.{senti}": 1}},
         upsert=True
     )
     print("[INFO] Sentiment metrics updated.")
@@ -176,9 +184,21 @@ def comments(username):
     comments=fetch_comments(username)
     for item in comments:
         id=item['id']
+        poss=0
+        neg=0
+        comment_analysis=[]
         for comment in item['comments']:
             analysis = analyze_tweet(comment)
-            store_analysis_comments(id, analysis)
+
+            comment_analysis.append(analysis)
+            if analysis['sentiment']=='LABEL_0':
+                neg+=1
+                alert(comment,id,"",'X')
+            else:
+                poss+=1
+        score=poss/(poss+neg)
+        
+        store_analysis_comments(id, comment_analysis,score)
 
 def test():
     
@@ -194,22 +214,23 @@ def start_loop():
     socketio.sleep(3)
     test()
 
-# @app.route("/dashboard")
-# def dashboard():
-#     print("[INFO] Dashboard API hit.")
-#     metrics = db.metrics.find_one({"type": "sentiment"}) or {}
-#     counts = metrics.get("counts", {})
-#     print(f"[INFO] Current sentiment counts: {counts}")
-#     return jsonify({
-#         "positive": counts.get("LABEL_1", 0),
-#         "negative": counts.get("LABEL_2", 0),
-#         "neutral": counts.get("NEUTRAL", 0)
-#     })
+@app.route("/dashboard")
+def dashboard():
+    print("[INFO] Dashboard API hit.")
+    metrics = db.metrics.find_one({"type": "sentiment"}) or {}
+    counts = metrics.get("counts", {})
+    print(f"[INFO] Current sentiment counts: {counts}")
+    return jsonify({
+        "positive": counts.get("POSITIVE", 0),
+        "negative": counts.get("NEGATIVE", 0),
+        "neutral": counts.get("NEUTRAL", 0)
+    })
 
 
 if __name__ == "__main__":
-    # print("[INFO] Starting tweet fetcher and Flask server...")
+    print("[INFO] Starting tweet fetcher and Flask server...")
+    
     fetch_tweets()
     #test()
     #socketio.start_background_task(start_loop)
-    # socketio.run(app, port=5000, debug=True)
+    socketio.run(app, port=5000, debug=True)
