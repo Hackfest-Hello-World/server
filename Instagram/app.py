@@ -9,6 +9,7 @@ from transformers import pipeline
 from dotenv import load_dotenv
 import time
 from bson.json_util import dumps
+from alert import alert
 
 import logging
 from app2 import *
@@ -107,6 +108,7 @@ def fetch_captions_comments():
             store_analysis_comments(post_id, analysis1)
             if analysis1['sentiment']=='LABEL_0':
                 neg+=1
+                alert(comment['text'],post_id,"",'INSTAGRAM')
             else:
                 poss+=1
             comm.append(analysis1)
@@ -163,8 +165,8 @@ def dashboard():
     counts = metrics.get("counts", {})
     print(f"[INFO] Current sentiment counts: {counts}")
     return jsonify({
-        "positive": counts.get("LABEL_1", 0),
-        "negative": counts.get("LABEL_2", 0),
+        "positive": counts.get("POSITIVE", 0),
+        "negative": counts.get("NEGATIVE", 0),
         "neutral": counts.get("NEUTRAL", 0)
     })
 
