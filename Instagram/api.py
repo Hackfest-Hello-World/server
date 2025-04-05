@@ -266,9 +266,9 @@ def dashboard():
     counts = metrics.get("counts", {})
     print(f"[INFO] Current sentiment counts: {counts}")
     return jsonify({
-        "positive": counts.get("POSITIVE", 0),
-        "negative": counts.get("NEGATIVE", 0),
-        "neutral": counts.get("NEUTRAL", 0)
+        "positive": counts.get("LABEL_1", 0),
+        "negative": counts.get("LABEL_0", 0),
+        "neutral": counts.get("NEUTRAL", 0),
     })
 
 @app.route("/insta-analysis")
@@ -294,14 +294,14 @@ def insta_analysis():
         "platform": "Instagram",
         "stats": {
             "posts": {
-                "positive": {"count": counts.get("POSITIVE", 0), "percentage": calculate_percentage(counts.get("POSITIVE", 0), posts_total)},
-                "negative": {"count": counts.get("NEGATIVE", 0), "percentage": calculate_percentage(counts.get("NEGATIVE", 0), posts_total)},
+                "positive": {"count": counts.get("LABEL_1", 0), "percentage": calculate_percentage(counts.get("LABEL_1", 0), posts_total)},
+                "negative": {"count": counts.get("LABEL_0", 0), "percentage": calculate_percentage(counts.get("LABEL_0", 0), posts_total)},
                 "neutral": {"count": counts.get("NEUTRAL", 0), "percentage": calculate_percentage(counts.get("NEUTRAL", 0), posts_total)},
                 "total": posts_total
             },
             "comments": {
-                "positive": {"count": comments_counts.get("POSITIVE", 0), "percentage": calculate_percentage(comments_counts.get("POSITIVE", 0), comments_total)},
-                "negative": {"count": comments_counts.get("NEGATIVE", 0), "percentage": calculate_percentage(comments_counts.get("NEGATIVE", 0), comments_total)},
+                "positive": {"count": comments_counts.get("LABEL_1", 0), "percentage": calculate_percentage(comments_counts.get("LABEL_1", 0), comments_total)},
+                "negative": {"count": comments_counts.get("LABEL_0", 0), "percentage": calculate_percentage(comments_counts.get("LABEL_0", 0), comments_total)},
                 "neutral": {"count": comments_counts.get("NEUTRAL", 0), "percentage": calculate_percentage(comments_counts.get("NEUTRAL", 0), comments_total)},
                 "total": comments_total
             }

@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 import time
 from bson.json_util import dumps
 import logging
+import math
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -256,10 +257,11 @@ def dashboard():
     metrics = db.metrics.find_one({"type": "sentiment"}) or {}
     counts = metrics.get("counts", {})
     print(f"[INFO] Current sentiment counts: {counts}")
+    # neutral_count = math.ceil(counts.get("LABEL_1", 0)*0.15 + counts.get("LABEL_0", 0)*0.15)
     return jsonify({
-        "positive": counts.get("POSITIVE", 0),
-        "negative": counts.get("NEGATIVE", 0),
-        "neutral": counts.get("NEUTRAL", 0)
+        "positive": counts.get("LABEL_1", 0),
+        "negative": counts.get("LABEL_0", 0),
+        "neutral": counts.get("NEUTRAL", 0),
     })
 
 @app.route("/twitter-analysis")
@@ -285,14 +287,14 @@ def twitter_analysis():
         "platform": "Twitter",
         "stats": {
             "tweets": {
-                "positive": {"count": counts.get("POSITIVE", 0), "percentage": calculate_percentage(counts.get("POSITIVE", 0), posts_total)},
-                "negative": {"count": counts.get("NEGATIVE", 0), "percentage": calculate_percentage(counts.get("NEGATIVE", 0), posts_total)},
+                "positive": {"count": counts.get("LABEL_1", 0), "percentage": calculate_percentage(counts.get("LABEL_1", 0), posts_total)},
+                "negative": {"count": counts.get("LABEL_0", 0), "percentage": calculate_percentage(counts.get("LABEL_0", 0), posts_total)},
                 "neutral": {"count": counts.get("NEUTRAL", 0), "percentage": calculate_percentage(counts.get("NEUTRAL", 0), posts_total)},
                 "total": posts_total
             },
             "comments": {
-                "positive": {"count": comments_counts.get("POSITIVE", 0), "percentage": calculate_percentage(comments_counts.get("POSITIVE", 0), comments_total)},
-                "negative": {"count": comments_counts.get("NEGATIVE", 0), "percentage": calculate_percentage(comments_counts.get("NEGATIVE", 0), comments_total)},
+                "positive": {"count": comments_counts.get("LABEL_1", 0), "percentage": calculate_percentage(comments_counts.get("LABEL_1", 0), comments_total)},
+                "negative": {"count": comments_counts.get("LABEL_0", 0), "percentage": calculate_percentage(comments_counts.get("LABEL_0", 0), comments_total)},
                 "neutral": {"count": comments_counts.get("NEUTRAL", 0), "percentage": calculate_percentage(comments_counts.get("NEUTRAL", 0), comments_total)},
                 "total": comments_total
             }
