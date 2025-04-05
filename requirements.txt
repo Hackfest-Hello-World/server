@@ -73,3 +73,50 @@ uritemplate==4.1.1
 urllib3==2.2.3
 werkzeug==3.0.6
 zipp==3.20.2
+# Web Framework
+Flask
+flask-socketio
+gunicorn
+eventlet
+
+# Database & Caching
+pymongo
+redis
+
+# Social Media APIs
+tweepy
+python-instagram
+linkedin-api
+
+# NLP & AI
+textblob
+transformers
+torch
+nltk
+emoji
+
+# Message Queue
+celery
+
+# Notifications
+twilio
+sendgrid
+
+# Visualization
+plotly
+dash
+
+# Utilities
+python-dotenv
+requests
+pandas
+numpy
+pydantic
+python-dateutil
+
+# Testing
+pytest
+
+# Security
+PyJWT
+cryptography
