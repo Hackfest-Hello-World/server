@@ -2,13 +2,31 @@ from flask import Flask, redirect, request, url_for, session, render_template, j
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+from flask_session import Session
+from pymongo import MongoClient
+from dotenv import load_dotenv
+from datetime import timedelta
+load_dotenv()
 import os
 import json
 
 # Configuration
 app = Flask(__name__)
 app.secret_key = 'hack_the_fest'  # Change this to a random secret key
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'  # Remove this in production
+
+# Create a MongoDB client
+mongo_client = MongoClient(os.getenv("MONGO_URI"))
+db = mongo_client.event_monitoring
+
+app.config['SESSION_TYPE'] = 'mongodb'
+app.config['SESSION_PERMANENT'] = True
+app.config['SESSION_USE_SIGNER'] = True 
+app.config['SESSION_MONGODB'] = mongo_client
+app.config['SESSION_MONGODB_DB'] = 'event_monitoring'
+app.config['SESSION_MONGODB_COLLECT'] = 'google_auth_session'
+Session(app)
 
 # OAuth configuration
 CLIENT_SECRETS_FILE = 'client_secrets.json'  # Download this from Google Cloud Console
@@ -99,8 +117,8 @@ def transform_form_data_for_mongodb(api_response):
 @app.route('/')
 def index():
     if 'credentials' not in session:
-        return render_template('login.html')
-    return redirect(url_for('dashboard'))
+        return redirect("/login")
+    return redirect("/dashboard")
 
 @app.route('/login')
 def login():
@@ -127,6 +145,7 @@ def oauth2callback():
     )
     flow.fetch_token(authorization_response=request.url)
     credentials = flow.credentials
+    session.permanent = True
     session['credentials'] = {
         'token': credentials.token,
         'refresh_token': credentials.refresh_token,
@@ -140,9 +159,9 @@ def oauth2callback():
 @app.route('/dashboard')
 def dashboard():
     if 'credentials' not in session:
-        return redirect(url_for('login'))
-    return render_template('dashboard.html')
-
+        return redirect("/login")
+    return "Authentication Success!"
+  
 @app.route('/forms')
 def get_forms():
     if 'credentials' not in session:
@@ -150,20 +169,19 @@ def get_forms():
     
     credentials = Credentials(**session['credentials'])
     
-    # Build the Forms API service
-    forms_service = build('forms', 'v1', credentials=credentials, 
-                          discoveryServiceUrl="https://forms.googleapis.com/$discovery/rest?version=v1")
-    
-    # Get list of forms
-    # Note: The Forms API doesn't have a direct method to list all forms
-    # We'll use the Drive API to list files of type 'form'
-    drive_service = build('drive', 'v3', credentials=credentials)
+    # Use the Drive API to list files of type 'form'
+    drive_service = build('drive', 'v3', credentials=credentials, cache_discovery=False)
     results = drive_service.files().list(
         q="mimeType='application/vnd.google-apps.form'",
         fields="files(id, name)"
     ).execute()
     
     forms = results.get('files', [])
+    
+    # Add URL to each form
+    for form in forms:
+        form['url'] = f"https://docs.google.com/forms/d/{form['id']}"
+    
     return jsonify(forms)
 
 @app.route('/form/<form_id>/responses')
@@ -175,7 +193,8 @@ def get_form_responses(form_id):
     
     # Build the Forms API service
     forms_service = build('forms', 'v1', credentials=credentials, 
-                          discoveryServiceUrl="https://forms.googleapis.com/$discovery/rest?version=v1")
+                          discoveryServiceUrl="https://forms.googleapis.com/$discovery/rest?version=v1",
+                          cache_discovery=False)
     
     # Get form details
     form = forms_service.forms().get(formId=form_id).execute()
@@ -194,7 +213,7 @@ def get_form_responses(form_id):
 @app.route('/logout')
 def logout():
     session.clear()
-    return redirect(url_for('index'))
+    return redirect('/')
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -4,3 +4,7 @@ survey
 */client_secrets.json
 Zoom
 client_secrets.json
+forms_data.json
+
+*/__pycache__
+__pycache__
