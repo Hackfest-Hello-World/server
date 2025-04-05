@@ -134,4 +134,3 @@ def build_user_schema(username):
         "profile": user_info,
         "posts": post_list
     }
-

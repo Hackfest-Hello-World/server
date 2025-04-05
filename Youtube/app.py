@@ -13,7 +13,7 @@ os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
 app = Flask(__name__)
 CORS(app)
-app.secret_key = 'hack_the_fest'  # Replace with a secure random key
+# app.secret_key = 'hack_the_fest'  # Replace with a secure random key
 
 # YouTube API settings
 CLIENT_SECRETS_FILE = "client_secrets.json"
