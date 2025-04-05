@@ -5,6 +5,9 @@ from dotenv import load_dotenv
 import os
 import logging
 from flask_cors import CORS
+from bson.json_util import dumps
+import json
+from bson import ObjectId
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, 
@@ -148,8 +151,8 @@ def insta_analysis():
     
     # Get recent posts and comments
     # recent_posts = list(db.feedback_insta.find({}, {"_id": 0, "text": 1, "sentiment": 1, "timestamp": 1}).sort("timestamp", -1).limit(5))
-    recent_posts = list(db.feedback_insta.find({}, {"_id": 0}).sort("timestamp", -1).limit(5))
-
+    recent_posts = dumps(db.feedback_insta.find({},{"_id": 0}).sort("timestamp", -1).limit(5))
+    recent_posts=json.loads(recent_posts)
 
     # recent_comments = list(db.feedback_comments_insta.find({}, {"_id": 0, "text": 1, "sentiment": 1, "timestamp": 1}).sort("timestamp", -1).limit(5))
     
@@ -230,6 +233,18 @@ def get_live_forms():
     live_forms = sorted(live_forms, key=lambda form: form.get("lastUpdated") or "", reverse=True)
     return jsonify(live_forms)
     
+@app.route('/notifications', methods=['GET'])
+def get_notifications():
+    notifications = list(db.alerts.find({'checked':'False'}).sort("timestamp", -1).limit(1))  # Latest first
+    for n in notifications:
+        n['_id'] = str(n['_id'])  # Convert ObjectId to string
+        db.alerts.update_one(
+            {'_id': ObjectId(n['_id'])},
+            {'$set': {'checked': 'True'}}
+        )
+    
+        
+    return jsonify(notifications)
 
 if __name__ == '__main__':
     print("[INFO] Starting main dashboard server...")
