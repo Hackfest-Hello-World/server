@@ -229,7 +229,7 @@ def transform_form_data_for_mongodb(api_response, stored_responses):
             {{
             "sentiment": "positive/negative/neutral",
             "confidence" : 
-            "response_summary": 
+            "comment_summary": 
             }}
             '''
         #   print(prompt)

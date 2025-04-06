@@ -1,9 +1,10 @@
-from  groqpr import groq_llm_promt
+from  groq_service.groq_promt import groq_llm_promt
 import json
 from pymongo import MongoClient
 from dotenv import load_dotenv
 import os
 print("[INFO] Connecting to MongoDB...")
+load_dotenv()
 mongo_client = MongoClient(os.getenv("MONGO_URI"))
 db = mongo_client.event_monitoring
 print("[INFO] MongoDB connection established.")
@@ -32,7 +33,7 @@ def alert(message,id,url,source):
     - Medium: Should be addressed soon (notable issues affecting event experience)
     - Low: Minor issues that should be logged but aren't urgent
 
-    ## Response Format:
+    ## Response Format (JSON):
     {
     "classification": "ISSUE" or "NOT_ISSUE",
     "confidence": [number between 0-1],
@@ -41,7 +42,7 @@ def alert(message,id,url,source):
     "reasoning": [brief explanation of classification decision],
     "suggested_action": [if ISSUE, brief recommendation]
     }
-
+    Note Strictly: Your response should be in JSON format as youre response is directly going to be parsed for json
     ## Message to analyze:\n'''+message
 
 
@@ -56,8 +57,13 @@ def alert(message,id,url,source):
             groq_response['url']=url
             groq_response['source']=source
             groq_response['checked']='False'
-            db.alerts.insert_one(groq_response)
-        print(groq_response)
+            # if alerts already has alert for post_id then dont insert
+            if db.alerts.find_one({"post_id": id}):
+                print("alert already exists for post_id", id)
+            else:  
+                response = db.alerts.insert_one(groq_response)
+                print("database alert insert success", response)
+        print("groq_response",groq_response)
     except json.JSONDecodeError:
         print("Error decoding JSON response from Groq")
         groq_response = {

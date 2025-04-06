@@ -11,7 +11,7 @@ import sys
 import time
 import threading
 import datetime
-
+from alert import alert
 # Load environment variables
 load_dotenv()
 print(f"[{datetime.datetime.now()}] Starting YouTube data fetch script")
@@ -117,8 +117,16 @@ def get_videos():
         description= video["description"]
         publishedAt = video["publishedAt"]
         url= f"https://www.youtube.com/watch?v={video['id']}"
+        
+        stored_video = video_collection.find_one({"id": id})
+        stored_comments = stored_video.get("comments", []) if stored_video else []
+        stored_comments_ids = {comment["id"] for comment in stored_comments}
         transformed_videos.append({
-            "id": id,"title": title,"description": description,"publishedAt": publishedAt, "url":url, "comments": []
+            "id": id,"title": title,"description": description,"publishedAt": publishedAt, "url":url, "comments": [], "sentiment_distribution": {
+                "positive": 0,
+                "negative": 0,
+                "neutral": 0
+            }, "top_positive_comments": [], "top_negative_comments": []
         })
         
     try:
@@ -148,17 +156,61 @@ def get_videos():
                     
                     for item in comments_response.get('items', []):
                         comment = item['snippet']['topLevelComment']['snippet']
-                        youtube_video["comments"].append({
+                        print(comment)
+                        user_comment = {
                             'id': item['id'],
                             'author': comment['authorDisplayName'],
                             'text': comment['textDisplay'],
                             'likeCount': comment['likeCount'],
-                            'publishedAt': comment['publishedAt']
-                        })
-                    
+                            'publishedAt': comment['publishedAt'],
+                            "sentiment_analysis": {
+                                
+                            }
+                        }
+                        if item['id'] not in stored_comments_ids or (stored_comments[stored_comments_ids.index(item['id'])]["sentiment_analysis"] is {}) :
+                            prompt = f'''You have to act as an expert in providing overall sentiment analysis for the following youtube video comments submitted by a user and a very small comment summary not more than 4-5 words. The comments object provided below contains author, text and other fields the text key is the actual comment on it you have to do the overall sentiment analysis \n 
+                            Comment given by the user is:
+                            {user_comment}
+                            
+                            You have to give the response output as a json format (Strictly stick to the output format as a json), dont include anything else, just give the output format in json as i will parse the response directly using json.loads(your_response). The comment_summary should not be more than 4-5 words and should be such that reading it we can get some important analysis \n
+                            {{
+                            "sentiment": "positive/negative/neutral",
+                            "confidence" : 
+                            "comment_summary": 
+                            }}
+                            '''
+                            groq_response = groq_llm_promt(prompt)
+                            try:
+                                groq_response = json.loads(groq_response)
+                            except json.JSONDecodeError:
+                                print("Error decoding JSON response from Groq")
+                                groq_response = {
+                                    "sentiment": "unknown",
+                                    "confidence": 0.0,
+                                    "comment_summary": user_comment["text"]
+                                }
+                            user_comment["sentiment_analysis"] = groq_response
+                        else:
+                            user_comment["sentiment_analysis"] = stored_comments[stored_comments_ids.index(item['id'])]["sentiment_analysis"]
+                          
+                        print(user_comment["sentiment_analysis"])
+                        if user_comment['sentiment_analysis'] is not {}:
+                            if user_comment["sentiment_analysis"]["sentiment"].lower() == "positive":
+                                youtube_video["sentiment_distribution"]["positive"] += 1
+                                youtube_video["top_positive_comments"].append({"text": user_comment["sentiment_analysis"]["comment_summary"], "score": user_comment["sentiment_analysis"]["confidence"]})
+                            elif user_comment["sentiment_analysis"]["sentiment"].lower() == "negative":
+                                youtube_video["sentiment_distribution"]["negative"] += 1
+                                youtube_video["top_negative_comments"].append({"text": user_comment["sentiment_analysis"]["comment_summary"], "score": user_comment["sentiment_analysis"]["confidence"]})
+                                alert(user_comment["text"], user_comment["id"],youtube_video["url"],"Youtube")
+                            elif user_comment["sentiment_analysis"]["sentiment"].lower() == "neutral":
+                                youtube_video["sentiment_distribution"]["neutral"] += 1
+                        youtube_video["comments"].append(user_comment)
+               
                     next_page_token = comments_response.get('nextPageToken')
                     if not next_page_token:
                         break
+                    youtube_video["top_positive_comments"] = sorted(youtube_video["top_positive_comments"], key=lambda x: x["score"], reverse=True)[:5]
+                    youtube_video["top_negative_comments"] = sorted(youtube_video["top_negative_comments"], key=lambda x: x["score"], reverse=True)[:5]
                 except Exception as e:
                     print(f"[{datetime.datetime.now()}] Error fetching comments for video {video_id}: {str(e)}")
                     break
@@ -181,7 +233,30 @@ def get_videos():
         print(f"[{datetime.datetime.now()}] No videos found to save to MongoDB")
         
     print(f"[{datetime.datetime.now()}] Video fetch process completed")
-    return videos
+    metrics = {
+        "type": "sentiment",
+        "count": {
+            "LABEL_0": 0,
+            "LABEL_1": 0,
+            "LABEL_2": 0,
+        }
+        
+    }
+    for video in transformed_videos:
+        for comment in video["comments"]:
+            if comment["sentiment_analysis"]["sentiment"].lower() == "negative":
+                metrics["count"]["LABEL_0"] += 1
+            elif comment["sentiment_analysis"]["sentiment"].lower() == "positive":
+                metrics["count"]["LABEL_1"] += 1
+            elif comment["sentiment_analysis"]["sentiment"].lower() == "neutral":
+                metrics["count"]["LABEL_2"] += 1
+    
+    db.metrics_youtube.update_one(
+        {"type": "sentiment"},
+        {"$set": metrics},
+        upsert=True
+    )
+    return transformed_videos
 
 if "__main__" == __name__:
     # Start the process to fetch videos

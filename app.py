@@ -235,8 +235,9 @@ def get_live_forms():
 
 @app.route("/youtube/videos")
 def get_youtube_channel():
-    youtube_videos = list(db.videos.find({}, {"_id": 0}).sort("timestamp", -1))
-    
+    youtube_videos = list(db.youtube_videos.find({}, {"_id": 0}).sort("timestamp", -1))
+    # sort youtube_videos acc to   "publishedAt": "2025-04-05T00:34:23Z", in descending order
+    youtube_videos.sort(key=lambda x: x.get("publishedAt", ""), reverse=True)
     return youtube_videos
 
 @app.route('/notifications', methods=['GET'])
