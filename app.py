@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_socketio import SocketIO
 from pymongo import MongoClient
 from dotenv import load_dotenv
@@ -7,10 +7,10 @@ import logging
 from flask_cors import CORS
 from bson.json_util import dumps
 import json
-from bson import ObjectId
+from bson import ObjectId, json_util
 from surveillance import start1
 import threading
-
+from datetime import datetime
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, 
@@ -29,6 +29,11 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 # Connect to MongoDB
 mongo_client = MongoClient(os.getenv("MONGO_URI"))
 db = mongo_client.event_monitoring
+
+# Setup message collection from chat.py
+messages_collection = db['messages']
+# Ensure index for efficient querying
+messages_collection.create_index([('thread_id', 1), ('timestamp', 1)])
 
 def calculate_percentage(value, total):
     """Calculate percentage with safety for division by zero"""
@@ -50,14 +55,6 @@ def home_dashboard():
     total_neutral = sum(p["counts"].get("LABEL_2", 0) for p in platforms.values())
     total_items = total_positive + total_negative + total_neutral
     
-    # # Get recent urgent items
-    # urgent_items = list(db.feedback.find({"urgent": True}, {"_id": 0}).sort("timestamp", -1).limit(3))
-    # urgent_items.extend(list(db.feedback_insta.find({"urgent": True}, {"_id": 0}).sort("timestamp", -1).limit(3)))
-    # urgent_items.extend(list(db.feedback_youtube.find({"urgent": True}, {"_id": 0}).sort("timestamp", -1).limit(3)))
-    
-    # Sort by timestamp
-    # urgent_items.sort(key=lambda x: x["timestamp"], reverse=True)
-
     trend_posts_insta = list(db.feedback_insta.find({}, {"_id": 0, "text": 1, "sentiment": 1, "timestamp": 1}).sort("views", -1).limit(2))
     trend_posts_twitter = list(db.feedback.find({}, {"_id": 0, "text": 1, "sentiment": 1, "timestamp": 1}).sort("trend", -1).limit(2))
     return jsonify({
@@ -97,7 +94,6 @@ def home_dashboard():
         "trend_twitter": trend_posts_twitter,
     })
 
-
 @app.route("/twitter-analysis")
 def twitter_analysis():
     print("[INFO] Twitter Analysis API hit.")
@@ -115,7 +111,6 @@ def twitter_analysis():
     
     # Get recent tweets and comments
     recent_tweets = list(db.feedback.find({}, {"_id": 0, "text": 1, "sentiment": 1, "timestamp": 1, "uri": 1}).sort("timestamp", -1).limit(5))
-    # recent_comments = list(db.feedback_comments.find({}, {"_id": 0, "text": 1, "sentiment": 1, "timestamp": 1}).sort("timestamp", -1).limit(5))
     
     return jsonify({
         "platform": "Twitter",
@@ -134,7 +129,6 @@ def twitter_analysis():
             }
         },
         "recent_tweets": recent_tweets,
-        # "recent_comments": recent_comments
     })
 
 @app.route("/insta-analysis")
@@ -153,11 +147,8 @@ def insta_analysis():
     comments_total = sum(comments_counts.values())
     
     # Get recent posts and comments
-    # recent_posts = list(db.feedback_insta.find({}, {"_id": 0, "text": 1, "sentiment": 1, "timestamp": 1}).sort("timestamp", -1).limit(5))
     recent_posts = dumps(db.feedback_insta.find({},{"_id": 0}).sort("timestamp", -1).limit(5))
     recent_posts=json.loads(recent_posts)
-
-    # recent_comments = list(db.feedback_comments_insta.find({}, {"_id": 0, "text": 1, "sentiment": 1, "timestamp": 1}).sort("timestamp", -1).limit(5))
     
     return jsonify({
         "platform": "Instagram",
@@ -176,7 +167,6 @@ def insta_analysis():
             }
         },
         "recent_posts": recent_posts,
-        # "recent_comments": recent_comments
     })
 
 @app.route("/forms/getAll")
@@ -252,7 +242,6 @@ def get_notifications():
             {'$set': {'checked': 'True'}}
         )
     
-        
     return jsonify(notifications)
 
 @app.route('/start-surveillance', methods=['GET'])
@@ -265,6 +254,71 @@ def func():
     print(m)
     return m
 
+# Chat endpoints from chat.py
+@app.route('/api/messages', methods=['GET'])
+def get_messages():
+    try:
+        # Fetch root-level messages
+        pipeline = [
+            {"$match": {"thread_id": {"$exists": False}}},
+            {"$sort": {"timestamp": -1}},
+            {"$limit": 50},
+            {
+                "$lookup": {
+                    "from": "messages",
+                    "localField": "_id",
+                    "foreignField": "thread_id",
+                    "as": "replies",
+                    "pipeline": [
+                        {"$sort": {"timestamp": 1}},
+                        {"$limit": 10}
+                    ]
+                }
+            },
+            {
+                "$addFields": {
+                    "reply_count": {"$size": "$replies"}
+                }
+            }
+        ]
+        messages = list(messages_collection.aggregate(pipeline))
+        return jsonify(json.loads(json_util.dumps(messages)))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/messages', methods=['POST'])
+def add_message():
+    try:
+        data = request.get_json()
+
+        if not data or not data.get('content'):
+            return jsonify({'error': 'Missing message content'}), 400
+
+        message = {
+            'content': data['content'],
+            'author': data.get('author', 'Anonymous'),
+            'timestamp': datetime.utcnow()
+        }
+
+        # Handle reply if thread_id is provided
+        thread_id = data.get('thread_id').get("$oid") if data.get('thread_id') else None
+        
+        if thread_id:
+            try:
+                message['thread_id'] = ObjectId(thread_id)
+            except Exception:
+                return jsonify({'error': 'Invalid thread_id format'}), 400
+
+        result = messages_collection.insert_one(message)
+        message['_id'] = str(result.inserted_id)
+        message['timestamp'] = message['timestamp'].isoformat() + 'Z'
+        message['thread_id'] = str(message.get('thread_id')) if thread_id else None
+        return jsonify(message), 201
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
-    print("[INFO] Starting main dashboard server...")
+    print("[INFO] Starting server on port 5000...")
     socketio.run(app, port=5000, debug=True)
