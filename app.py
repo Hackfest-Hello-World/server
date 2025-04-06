@@ -8,6 +8,9 @@ from flask_cors import CORS
 from bson.json_util import dumps
 import json
 from bson import ObjectId
+from surveillance import start1
+import threading
+
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, 
@@ -252,6 +255,16 @@ def get_notifications():
         
     return jsonify(notifications)
 
+@app.route('/start-surveillance', methods=['GET'])
+def func():
+    thread = threading.Thread(target=start1)
+    thread.start()
+    m=db.overcrowding.find({}).limit(5)
+
+    m=json.loads(dumps(m))
+    print(m)
+    return m
+
 if __name__ == '__main__':
     print("[INFO] Starting main dashboard server...")
-    socketio.run(app, port=5010, debug=True)
+    socketio.run(app, port=5000, debug=True)

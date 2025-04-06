@@ -1,4 +1,4 @@
-from  groqpr import groq_llm_promt
+from  groq_service.groq_promt import groq_llm_promt
 import json
 from pymongo import MongoClient
 from dotenv import load_dotenv
@@ -85,3 +85,9 @@ Provide only the category label ("LABEL_1", "LABEL_0", or "LABEL_2") as your res
     groq_response = groq_llm_promt(prompt)
     
     return groq_response
+
+def alert1(count):
+    data={}
+    data['message']='overcrowding'
+    data['count']=count
+    db.overcrowding.insert_one(data)
