@@ -232,7 +232,13 @@ def get_live_forms():
     # Sort forms by lastUpdated in decreasing order (newest first)
     live_forms = sorted(live_forms, key=lambda form: form.get("lastUpdated") or "", reverse=True)
     return jsonify(live_forms)
+
+@app.route("/youtube/videos")
+def get_youtube_channel():
+    youtube_videos = list(db.videos.find({}, {"_id": 0}).sort("timestamp", -1))
     
+    return youtube_videos
+
 @app.route('/notifications', methods=['GET'])
 def get_notifications():
     notifications = list(db.alerts.find({'checked':'False'}).sort("timestamp", -1).limit(1))  # Latest first

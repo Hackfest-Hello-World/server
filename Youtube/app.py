@@ -12,12 +12,20 @@ from datetime import datetime, timezone, timedelta
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
 app = Flask(__name__)
+app.secret_key = "hack_fest"
 CORS(app)
 # app.secret_key = 'hack_the_fest'  # Replace with a secure random key
 
 # YouTube API settings
 CLIENT_SECRETS_FILE = "client_secrets.json"
-SCOPES = ['https://www.googleapis.com/auth/userinfo.profile', 'https://www.googleapis.com/auth/calendar.events' ,'https://www.googleapis.com/auth/youtube.readonly', 'https://www.googleapis.com/auth/youtube.force-ssl']
+SCOPES = [
+  'https://www.googleapis.com/auth/drive',
+  'https://www.googleapis.com/auth/drive.file',
+  'https://www.googleapis.com/auth/drive.readonly',
+    'https://www.googleapis.com/auth/forms.body.readonly',
+    'https://www.googleapis.com/auth/forms.responses.readonly',
+    'https://www.googleapis.com/auth/userinfo.profile', 'https://www.googleapis.com/auth/calendar.events' ,'https://www.googleapis.com/auth/youtube.readonly', 'https://www.googleapis.com/auth/youtube.force-ssl'
+]
 API_SERVICE_NAME = 'youtube'
 API_VERSION = 'v3'
 
