@@ -91,3 +91,9 @@ Provide only the category label ("LABEL_1", "LABEL_0", or "LABEL_2") as your res
     groq_response = groq_llm_promt(prompt)
     
     return groq_response
+
+def alert1(count):
+    data={}
+    data['message']='overcrowding'
+    data['count']=count
+    db.overcrowding.insert_one(data)

@@ -1,3 +1,7 @@
+groq
+ultralytics
+opencv-python
+deep_sort_realtime
 blinker
 certifi
 charset-normalizer
